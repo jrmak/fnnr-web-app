@@ -318,9 +318,10 @@ class ModularServer(tornado.web.Application):
         startLoop = not tornado.ioloop.IOLoop.initialized()
         if port is not None:
             self.port = port
-        url = 'http://127.0.0.1:{PORT}'.format(PORT=self.port)
+        ip = os.environ.get('OPENSHIFT_PYTHON_IP', 'localhost')
+        url = 'http://{IP}:{PORT}'.format(IP=ip, PORT=self.port)
         print('Interface starting at {url}'.format(url=url))
-        self.listen(self.port)
+        self.listen(self.port, ip)
         webbrowser.open(url)
         tornado.autoreload.start()
         if startLoop:
