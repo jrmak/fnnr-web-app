@@ -233,7 +233,8 @@ class Monkey(Agent):
 
     def migrate_to_new_family(self, new_family):
         self.family.family_size -= 1
-        self.family.list_of_family_members.remove(self.unique_id)
+        if self.unique_id in self.family.list_of_family_members:
+            self.family.list_of_family_members.remove(self.unique_id)
         self.family = new_family
         self.family.list_of_family_members.append(self.unique_id)
         self.family.family_size += 1

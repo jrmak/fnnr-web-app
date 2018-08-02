@@ -93,11 +93,6 @@ class Movement(Model):
             self.saveLoad(self.grid, 'grid_veg', 'save')
             self.saveLoad(self.schedule, 'schedule_veg', 'save')
 
-        """ Lines 68-92 are commented out, but they must be re-enabled if a new environmental grid
-         is put in. Otherwise, the model will load a 'pickled', or saved, environment from the disk, which will help
-         the model start up faster. They can also be modified to generate grid_without_humans or
-         masterdict_without_humans. """
-
         # Pickling below
         load_dict = {}  # placeholder for model parameters, leave this here even though it does nothing
 
@@ -146,8 +141,11 @@ class Movement(Model):
             human = Human(human_id, self, starting_position, hh_id, random.randint(15, 59),  # ages 15-59 randomly
                           0, starting_position, resource_position)  # currently, human age is not being used in the model
             if self.grid_type == 'with_humans':
+                print('confirmed')
                 self.grid.place_agent(human, starting_position)
                 self.schedule.add(human)
+            else:
+                print(self.grid_type)
 
         # Creation of monkey families (moving agents in the visualization)
         for i in range(self.number_of_families):  # the following code block create families
@@ -224,7 +222,6 @@ class Movement(Model):
         # necessary; tells model to move forward
         self.time += (1/73)
         self.step_in_year += 1
-        print(self.number_of_families)
         if self.step_in_year > 73:
             self.step_in_year = 1  # start new year
         self.schedule.step()

@@ -33,6 +33,7 @@ class Human(Agent):
         self.resource_position = resource_position
 
     def step(self):
+        print('human step')
         # self.age += 1  # currently not used; humans don't age
         if len(human_avoidance_list) > 94 * 9:  # 94 households, 8 neighbors, so 94 * 9 instances per step
             del human_avoidance_list[:]  # reset the list every step (once it hits a length of 94 * 9)
@@ -48,10 +49,10 @@ class Human(Agent):
         resource_position = self.resource_position
         if self.resource_check == 0:
             self.move_to_point(resource_position)
-            print('test')
+            print('human move')
         else:
+            print('human else')
             self.move_to_point(tuple(self.home_position))
-            print('test ok')
             if current_position[0] == list(self.home_position)[0] and current_position[1] == list(self.home_position)[1]:
                 # if you are back home, go out and collect resources again if frequency permits
                 self.resource_check = 0
@@ -59,7 +60,6 @@ class Human(Agent):
                 try:
                     self.resource_position = random.choice(resource_dict[int(self.hh_id)])  # randomly choose resource
                 except KeyError:
-                    print(resource_dict, self.hh_id)
                     pass
                     # not all households collect resources
 
