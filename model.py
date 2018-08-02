@@ -145,9 +145,9 @@ class Movement(Model):
             human_id += 1
             human = Human(human_id, self, starting_position, hh_id, random.randint(15, 59),  # ages 15-59 randomly
                           0, starting_position, resource_position)  # currently, human age is not being used in the model
-            if self.grid_type == 'with_humans':
-                self.grid.place_agent(human, starting_position)
-                self.schedule.add(human)
+           
+            self.grid.place_agent(human, starting_position)
+            self.schedule.add(human)
 
         # Creation of monkey families (moving agents in the visualization)
         for i in range(self.number_of_families):  # the following code block create families
