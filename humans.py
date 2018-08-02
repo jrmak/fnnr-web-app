@@ -48,8 +48,10 @@ class Human(Agent):
         resource_position = self.resource_position
         if self.resource_check == 0:
             self.move_to_point(resource_position)
+            print('test')
         else:
             self.move_to_point(tuple(self.home_position))
+            print('test ok')
             if current_position[0] == list(self.home_position)[0] and current_position[1] == list(self.home_position)[1]:
                 # if you are back home, go out and collect resources again if frequency permits
                 self.resource_check = 0
@@ -57,6 +59,7 @@ class Human(Agent):
                 try:
                     self.resource_position = random.choice(resource_dict[int(self.hh_id)])  # randomly choose resource
                 except KeyError:
+                    print(resource_dict, self.hh_id)
                     pass
                     # not all households collect resources
 
