@@ -218,7 +218,7 @@ class Movement(Model):
                 self.monkey_id_count += 1
                 list_of_family_members.append(monkey.unique_id)
                 self.schedule.add(monkey)
-
+        print(self.agents)
 
     def step(self):
         # necessary; tells model to move forward
