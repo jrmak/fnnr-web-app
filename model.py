@@ -222,7 +222,7 @@ class Movement(Model):
                 list_of_family_members.append(monkey.unique_id)
                 self.schedule.add(monkey)
         for x in schedule_temp_list:
-            self.schedule.agents.append(x)
+            self.schedule.add(x)
         print(self.schedule.agents)
 
     def step(self):
