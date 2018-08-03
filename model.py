@@ -2,7 +2,7 @@
 
 from mesa.model import Model
 from mesa.space import MultiGrid
-from mesa.time import RandomActivation, StagedActivation
+from mesa.time import RandomActivation
 from monkeys import *
 from environment import *
 from humans import _readCSV, Human, Resource
@@ -62,7 +62,7 @@ class Movement(Model):
         # MultiGrid is a Mesa function that sets up the grid; options are between SingleGrid and MultiGrid
         # MultiGrid allows you to put multiple layers on the grid
 
-        self.schedule = StagedActivation(self)  # Mesa: Random vs. Staged Activation
+        self.schedule = RandomActivation(self)  # Mesa: Random vs. Staged Activation
         # similar to NetLogo's Ask Agents - determines order (or lack of) in which each agents act
 
         empty_masterdict = {'Outside_FNNR': [], 'Elevation_Out_of_Bound': [], 'Household': [], 'PES': [], 'Farm': [],
@@ -166,6 +166,7 @@ class Movement(Model):
                             saved_position, split_flag)
             self.grid.place_agent(family, starting_position)
             self.schedule.add(family)
+            schedule_temp_list.append(family)
             global_family_id_list.append(family_id)
 
             # Creation of individual monkeys (not in the visualization submodel, but for the demographic submodel)
