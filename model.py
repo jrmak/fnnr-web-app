@@ -62,7 +62,7 @@ class Movement(Model):
         # MultiGrid is a Mesa function that sets up the grid; options are between SingleGrid and MultiGrid
         # MultiGrid allows you to put multiple layers on the grid
 
-        self.schedule = RandomActivation(self)  # Mesa: Random vs. Staged Activation
+        self.schedule = StagedActivation(self)  # Mesa: Random vs. Staged Activation
         # similar to NetLogo's Ask Agents - determines order (or lack of) in which each agents act
 
         empty_masterdict = {'Outside_FNNR': [], 'Elevation_Out_of_Bound': [], 'Household': [], 'PES': [], 'Farm': [],
@@ -222,7 +222,7 @@ class Movement(Model):
                 list_of_family_members.append(monkey.unique_id)
                 self.schedule.add(monkey)
         for x in schedule_temp_list:
-            self.schedule.add(x)
+            self.schedule.agents.append(x)
         print(self.schedule.agents)
 
     def step(self):
