@@ -152,9 +152,8 @@ class Movement(Model):
             if self.grid_type == 'with_humans':
                 self.grid.place_agent(human, starting_position)
                 self.schedule.add(human)
-                print('added')
-                print(self.schedule.agents)
-                
+        print('1', self.schedule.agents)
+        
         # Creation of monkey families (moving agents in the visualization)
         for i in range(self.number_of_families):  # the following code block create families
             starting_position = random.choice(startinglist)
@@ -224,6 +223,7 @@ class Movement(Model):
                 self.monkey_id_count += 1
                 list_of_family_members.append(monkey.unique_id)
                 self.schedule.add(monkey)
+        print('2', self.schedule.agents)
 
     def step(self):
         # necessary; tells model to move forward
