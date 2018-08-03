@@ -137,19 +137,24 @@ class Movement(Model):
                 resource = random.choice(resource_dict[hh_id])  # random resource point for human
                 resource_position = resource.position
                 resource_frequency = resource.frequency
+                print('resource')
                 # to travel to, among the list of resource points reported by that household; may change later
                 # to another randomly-picked resource
             except KeyError:
+              print('keyerror')
                 resource_position = starting_position  # some households don't collect resources
             human_id += 1
             resource_check = 0
             human = Human(human_id, self, starting_position, hh_id, random.randint(15, 59),  # ages 15-59 randomly
                           resource_check, starting_position, resource_position,
                           resource_frequency)  # currently, human age is not being used in the model
+            print(human)
             if self.grid_type == 'with_humans':
                 self.grid.place_agent(human, starting_position)
                 self.schedule.add(human)
-
+                print('added')
+                print(self.schedule.agents)
+                
         # Creation of monkey families (moving agents in the visualization)
         for i in range(self.number_of_families):  # the following code block create families
             starting_position = random.choice(startinglist)
