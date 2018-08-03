@@ -141,7 +141,7 @@ class Movement(Model):
                 # to travel to, among the list of resource points reported by that household; may change later
                 # to another randomly-picked resource
             except KeyError:
-              print('keyerror')
+                print('keyerror')
                 resource_position = starting_position  # some households don't collect resources
             human_id += 1
             resource_check = 0
