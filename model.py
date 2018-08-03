@@ -2,7 +2,7 @@
 
 from mesa.model import Model
 from mesa.space import MultiGrid
-from mesa.time import RandomActivation
+from mesa.time import RandomActivation, StagedActivation
 from monkeys import *
 from environment import *
 from humans import _readCSV, Human, Resource
