@@ -224,7 +224,7 @@ class Movement(Model):
                 self.schedule.add(monkey)
         for x in schedule_temp_list:
             self.schedule.add(x)
-        print(self.schedule.agents)
+        # print(self.schedule.agents)
 
     def step(self):
         # necessary; tells model to move forward
