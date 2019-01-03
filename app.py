@@ -113,5 +113,5 @@ server = ModularServer(Movement, [canvas, text0], "FNNR: an ABM of Guizhou Golde
         # deleted ', chart_count' after canvas
 # server.port = 8080
 server.port = int(os.getenv('PORT', 8521))
-server.listen(port, address='0.0.0.0')
+server.listen(server.port, address='0.0.0.0')
 server.launch()
