@@ -267,14 +267,12 @@ class ModularServer(tornado.web.Application):
         self.model_name = name
         self.model_cls = model_cls
         self.description = "Hello! Welcome to the Fanjingshan National Nature Reserve Agent-Based Model. The FNNR is home to the \
-        endangered Guizhou snub-nosed monkey, whose seasonal movements are tracked in this model. Each step represents 5 days in a year. \n
-        \n
-        Please refer to the legend/key to decipher the agents\' movements. Their rules are as follows: \n
+        endangered Guizhou snub-nosed monkey, whose seasonal movements are tracked in this model. Each step represents 5 days in a year. \
+        Please refer to the legend/key to decipher the agents\' movements. Their rules are as follows: \
         Guizhou snub-nosed monkey agents (moving as family groups) - move away from human areas and areas of unsuitable elevation. \
         Once these requirements are met, determine from its 8-cell neighbors\' vegetation types a weighted random direction \
-        in which to move. Twice per year, monkeys also migrate to Yangaoping in the northeast section of the FNNR. \n \n
+        in which to move. Twice per year, monkeys also migrate to Yangaoping in the northeast section of the FNNR. \
         In contrast to the monkeys, the humans\' only movement rules are to gather resources and return to their homes. \
-        \n \n
         Please take a look at https://github.com/jrmak/fnnr-abm-primate for more information!"
         if hasattr(model_cls, 'description'):
             self.description = model_cls.description
