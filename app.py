@@ -4,7 +4,7 @@
 # The visualization shows family agents as moving pixels; the graphs display the aging of monkey agents
 
 from CanvasGridVisualization import CanvasGrid  #, ChartModule
-from mesa.visualization.ModularVisualization import ModularServer
+from ModularVisualization import ModularServer
 from mesa.visualization.modules import TextElement
 from mesa.visualization.UserParam import UserSettableParameter
 
