@@ -10,6 +10,7 @@ from mesa.visualization.UserParam import UserSettableParameter
 
 from model import *
 from environment import *
+import os
 
 # grid should be a square
 width = Movement._readASCII(Movement, vegetation_file)[2]  # width = height in this case, even if ASCII file isn't
@@ -111,4 +112,6 @@ model_params = {"number_of_families": agent_slider, "grid_type": humans_choice}
 server = ModularServer(Movement, [canvas, text0], "FNNR: an ABM of Guizhou Golden Monkey Movement", model_params)
         # deleted ', chart_count' after canvas
 # server.port = 8080
+port = int(os.getenv('PORT', 4200))
+server.listen(port, address='0.0.0.0')
 server.launch()
