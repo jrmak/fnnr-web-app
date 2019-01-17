@@ -325,7 +325,7 @@ class ModularServer(tornado.web.Application):
         startLoop = not tornado.ioloop.IOLoop.initialized()
         if port is not None:
             self.port = port
-         ip = os.environ.get('OPENSHIFT_PYTHON_IP', 'localhost')
+        ip = os.environ.get('OPENSHIFT_PYTHON_IP', 'localhost')
         # ip = '0.0.0.0'
         url = 'http://{IP}:{PORT}'.format(IP=ip, PORT=self.port)
         print('Interface starting at {url}'.format(url=url))
