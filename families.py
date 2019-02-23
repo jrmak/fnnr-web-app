@@ -1,5 +1,3 @@
-# !/usr/bin/python
-
 """
 This file determines behavior for family agents in the visualization grid.
 """
@@ -44,14 +42,33 @@ class Family(Agent):
         # print(self.model.grid_type)
         # Movement for families is defined below
 
-        if 17 < self.model.step_in_year < 25 or 47 < self.model.step_in_year < 55:  # head to Yangaoping for Apr/Sept
+        if 16 < self.model.step_in_year < 25 or 46 < self.model.step_in_year < 55:  # head to Yangaoping for Apr/Sept
             # April: steps 19-25
             # September: steps 49-55
             yangaoping = [random.randint(50, 70), random.randint(70, 90)]
             # The grid is drawn from the bottom, so even though it is currently 85 x 100,
             # these numbers are relatively high because they indicate the top right corner of the grid
             for i in range(random.randint(5, 10)):  # the monkeys move multiple pixels each step, not just one
-                self.move_to_point(self.current_position, yangaoping)
+                correlation = 0.8
+                if random.uniform(0, 1) < correlation:
+                    from humans import human_avoidance_dict
+                    if self.current_position not in human_avoidance_dict:
+                        self.move_to_point(self.current_position, yangaoping)
+                    else:
+                        if random.random() > human_avoidance_dict[self.current_position]:
+                            self.move_to_point(self.current_position, yangaoping)
+                else:
+                    neig = self.model.grid.get_neighborhood(self.current_position, True, False)
+                    current_position = self.neighbor_choice(neig, masterdict)
+                    from humans import human_avoidance_dict
+                    if current_position not in human_avoidance_dict:
+                        self.move_to(current_position)
+                    else:
+                        if random.random() > human_avoidance_dict[current_position]:
+                            self.move_to(current_position)
+                        if current_position is not None:
+                            self.current_position = current_position
+                            moved_list.append(self.current_position)  # moved_list records positions for the heatmap
                 if self.current_position in masterdict['Elevation_Out_of_Bound'] or  \
                     self.current_position in masterdict['Outside_FNNR']:
                     # the movement formula may land the monkeys in territory where they cannot move.
@@ -66,7 +83,7 @@ class Family(Agent):
                     if self.current_position is not None:
                         moved_list.append(self.current_position)  # moved_list records positions for the heatmap
 
-        elif 26 < self.model.step_in_year < 34 or 56 < self.model.step_in_year < 64:  # head back to rest of reserve
+        elif 26 < self.model.step_in_year < 37 or 56 < self.model.step_in_year < 67:  # head back to rest of reserve
             # after breeding season ends, head away from Yangaoping
             rest_of_reserve = {}
             if self.model.run_type == 'first_run':
@@ -79,12 +96,25 @@ class Family(Agent):
                 self.model.saveLoad(rest_of_reserve, 'rest_of_reserve_dict', 'save')
             rest_of_reserve = self.model.saveLoad(rest_of_reserve, 'rest_of_reserve_dict', 'load')
             rest_of_reserve_choice = random.choice(rest_of_reserve)
-            #center = [50, 30]
-            load_dict = {}
-            masterdict = self.model.saveLoad(load_dict, 'masterdict_without_humans', 'load')
-            center = random.choice(masterdict['Broadleaf'] + masterdict['Mixed'] + masterdict['Deciduous'])
-            for i in range(random.randint(5, 15)):  # when returning to the rest of the reserve after Yangaoping
-                self.move_to_point(self.current_position, rest_of_reserve_choice)
+            center = [50, 50]  # only head towards this if out of bound
+            for i in range(random.randint(5, 10)):  # when returning to the rest of the reserve after Yangaoping
+                correlation = 0.8
+                if random.uniform(0, 1) < correlation:
+                    from humans import human_avoidance_dict
+                    if self.current_position not in human_avoidance_dict:
+                        self.move_to_point(self.current_position, rest_of_reserve_choice)
+                    else:
+                        if random.random() > human_avoidance_dict[self.current_position]:
+                            self.move_to_point(self.current_position, rest_of_reserve_choice)
+                else:
+                    neig = self.model.grid.get_neighborhood(self.current_position, True, False)
+                    current_position = self.neighbor_choice(neig, masterdict)
+                    from humans import human_avoidance_dict
+                    if current_position not in human_avoidance_dict:
+                        self.move_to(current_position)
+                    else:
+                        if random.random() > human_avoidance_dict[current_position]:
+                            self.move_to(current_position)
                 if self.current_position in masterdict['Elevation_Out_of_Bound'] or  \
                     self.current_position in masterdict['Outside_FNNR']:
                     # the movement formula may land the monkeys in territory where they cannot move.
@@ -99,20 +129,25 @@ class Family(Agent):
 
         else:
             # When it is not about to be breeding season/during it/just past it, move according to vegetation
-            if self.current_position in masterdict['Elevation_Out_of_Bound']:
+            if self.current_position in masterdict['Elevation_Out_of_Bound'] or self.current_position \
+                    in masterdict['Outside_FNNR']:
                 center = [50, 50]
                 for i in range(random.randint(5, 10)):
                     self.move_to_point(self.current_position, center)
-                if self.current_position in masterdict['Elevation_Out_of_Bound']:  # still
+                if self.current_position in masterdict['Elevation_Out_of_Bound'] or self.current_position \
+                        in masterdict['Outside_FNNR']:  # repeat last step if still out of bounds
                     center = [50, 50]
                     for i in range(random.randint(5, 10)):
                         self.move_to_point(self.current_position, center)
-            for i in range(random.randint(5, 10)):
+            for i in range(5):
                 neig = self.model.grid.get_neighborhood(self.current_position, True, False)
                 current_position = self.neighbor_choice(neig, masterdict)
-                from humans import human_avoidance_list
-                if current_position not in human_avoidance_list:
+                from humans import human_avoidance_dict
+                if current_position not in human_avoidance_dict:
                     self.move_to(current_position)
+                else:
+                    if random.random() > human_avoidance_dict[current_position]:
+                        self.move_to(current_position)
                     if current_position is not None:
                         self.current_position = current_position
                         moved_list.append(self.current_position)  # moved_list records positions for the heatmap
@@ -121,6 +156,7 @@ class Family(Agent):
             moved_list.append(self.current_position)  # moved_list records positions for the heatmap
 
     def move_to_point(self, current_position, new_position):
+        # Brings a pixel to a certain point using a correlated walk. Uses self.move_to within the function.
         current_position = list(current_position)  # current position
         if current_position[0] < new_position[0]:  # if the current position is away from Yaogaoping,
             current_position[0] = current_position[0] + 1  # move it closer
@@ -136,13 +172,17 @@ class Family(Agent):
         else:
             current_position[1] = current_position[1] - 1
         current_position = tuple(current_position)
-        from humans import human_avoidance_list
-        if current_position not in human_avoidance_list:
+        from humans import human_avoidance_dict
+        if current_position not in human_avoidance_dict:
             self.move_to(current_position)
             self.current_position = current_position
+        else:
+            if random.random() > human_avoidance_dict[current_position]:
+                self.move_to(current_position)
+                self.current_position = current_position
 
     def check_vegetation_of_neighbor(self, neighborlist, neighbordict):
-        # returns a list of neighbors as vegetation
+        # returns a list of neighbors as vegetation types
         neighbor_veg = {}
         neighbor_veg_list = []
         for neighbor in neighborlist:
@@ -183,7 +223,8 @@ class Family(Agent):
         # neighbordict is a dictionary with all vegetation categories and their corresponding grid values
         # neighborlist is a list of 8-cell neighbors to the current position
         neighbor_veg = self.check_vegetation_of_neighbor(neighborlist, neighbordict)
-        # weights below were taken from the pseudocode
+        # weights below were taken from the pseudocode, and can be modified
+        # for better code, a dictionary can be created instead of the below structure
         for vegetation in neighbor_veg:
             if vegetation == 'Elevation_Out_of_Bound':
                 weight = 0
@@ -234,7 +275,8 @@ class Family(Agent):
             #  and all of the continuous ranges summed up to 16.
 
             # a new weighted-choice function in Python 3.6 eliminates the need for this formula; however,
-            # this project will not chnage its dependencies at this point.
+            # this project will not change its dependencies at this point (Python 3.6 is required for this choice
+            # function).
             chance = random.uniform(0, 1)
 
             oldsum = 0
@@ -274,7 +316,10 @@ class Family(Agent):
             try:
                 assert int(newsum) == 1
             except AssertionError:
-                direction = self.current_position
+                if self.current_position != None:
+                    direction = self.current_position
+                else:
+                    direction = self.saved_position
             return direction
 
     def move_to(self, current_position):
