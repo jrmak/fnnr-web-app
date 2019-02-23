@@ -5,8 +5,9 @@ from mesa.space import MultiGrid
 from mesa.time import RandomActivation
 from monkeys import *
 from environment import *
-from humans import _readCSV, Human, Resource
-from resource_dict import resource_dict
+from humans import _readCSV, Human, Resource, human_demographic_structure_list
+from land import Land
+from fnnr_config_file import family_setting, human_setting, run_setting
 import pickle
 
 
@@ -17,17 +18,22 @@ It also sets up the environmental grid using imported vegetation, elevation, and
 Then every step, it calls for agents to act.
 """
 
+# NOTE: right now, the number of monkey families is set to 1 for model testing purposes (model runs faster).
+# The actual number should be around 20. Change this in __init__() under Movement(Model).
+
 global_family_id_list = []
 household_list = [2, 3, 5, 6, 8, 9, 11, 14, 15, 16, 17, 19, 22, 25, 27, 30, 31, 32, 34, 35, 36, 39, 41, 42, 43, 46,
                  47, 48, 49, 53, 54, 55, 57, 63, 64, 71, 72, 85, 100, 101, 102, 103, 104, 108, 113, 118, 120, 121,
                  123, 128, 129, 131, 132, 134, 135, 136, 137, 138, 140, 141, 142, 143, 144, 145, 146, 148, 149, 150,
                  151, 153, 154, 155, 157, 159, 161, 163, 165, 166, 167, 169]
 vegetation_file = 'agg_veg60.txt'  # change these filenames to another file in the same directory as needed
-elevation_file = 'agg_dem_87100.txt'  # I will upload more versions of the buffer zones later
+elevation_file = 'agg_dem_87100.txt'
 household_file = 'hh_ascii400.txt'
 farm_file = 'farm_ascii300.txt'
 pes_file = 'pes_ascii200.txt'
 forest_file = 'forest_ascii200.txt'
+# If any of the above .txt input environmental files are changed, change the run_type of the model to 'first_run',
+# then back to 'normal_run' on any subsequent runs
 
 masterdict = {}
 resource_dict = {}
@@ -36,8 +42,9 @@ class Movement(Model):
 
     def __init__(self, width = 0, height = 0, torus = False,
                  time = 0, step_in_year = 0,
-                 number_of_families = 20, number_of_monkeys = 0, monkey_birth_count = 0,
-                 monkey_death_count = 0, monkey_id_count = 0, grid_type = 'with_humans', run_type = 'normal_run'):
+                 number_of_families = family_setting, number_of_monkeys = 0, monkey_birth_count = 0,
+                 monkey_death_count = 0, monkey_id_count = 0,
+                 number_of_humans = 0, grid_type = human_setting, run_type = run_setting, human_id_count = 0):
         # change the # of families here for graph.py, but use server.py to change # of families in the movement model
         # torus = False means monkey movement can't 'wrap around' edges
         super().__init__()
@@ -50,8 +57,10 @@ class Movement(Model):
         self.monkey_birth_count = monkey_birth_count
         self.monkey_death_count = monkey_death_count
         self.monkey_id_count = monkey_id_count
+        self.number_of_humans = number_of_humans
         self.grid_type = grid_type   # string 'with_humans' or 'without_humans'
         self.run_type = run_type  # string with 'normal_run' or 'first_run'
+        self.human_id_count = human_id_count
 
         # width = self._readASCII(vegetation_file)[1] # width as listed at the beginning of the ASCII file
         # height = self._readASCII(vegetation_file)[2] # height as listed at the beginning of the ASCII file
@@ -118,7 +127,7 @@ class Movement(Model):
         # These include Fuelwood, Herbs, Bamboo, etc., but right now resource type and frequency are not used
         if self.grid_type == 'with_humans':
             for line in _readCSV('hh_survey.csv')[1:]:  # see 'hh_survey.csv'
-                hh_id_match = line[0]
+                hh_id_match = int(line[0])
                 resource_name = line[1]  # frequency is monthly; currently not-used
                 frequency = float(line[2]) / 6 # divided by 6 for 5-day frequency, as opposed to 30-day (1 month)
                 y = int(line[5])
@@ -127,33 +136,336 @@ class Movement(Model):
                                     self, (x, y), hh_id_match, resource_name, frequency)
                 self.grid.place_agent(resource, (int(x), int(y)))
                 resource_dict.setdefault(hh_id_match, []).append(resource)
-                
-        schedule_temp_list = []
+                if self.run_type == 'first_run':
+                    self.saveLoad(resource_dict, 'resource_dict', 'save')
+
+        # Creation of land parcels
+        land_parcel_count = 0
+
+        # individual land parcels in each household (non-gtgp and gtgp)
+        for line in _readCSV('hh_land.csv')[2:]:  # exclude headers; for each household:
+            age_1 = float(line[45])
+            gender_1 = float(line[46])
+            education_1 = float(line[47])
+            hh_id = int(line[0])
+            hh_size = 0  # calculate later
+
+            total_rice = float(line[41])
+            if total_rice in [-2, -3, -4]:
+                total_rice = 0
+            gtgp_rice = float(line[42])
+            if gtgp_rice in [-2, -3, -4]:
+                gtgp_rice = 0
+            total_dry = float(line[43])
+            if total_dry in [-2, -3, -4]:
+                total_dry = 0
+            gtgp_dry = float(line[44])
+            if gtgp_dry in [-2, -3, -4]:
+                gtgp_dry = 0
+            # non_gtgp_area = float(total_rice) + float(total_dry) - float(gtgp_dry) - float(gtgp_rice)
+            # gtgp_area = float(gtgp_dry) + float(gtgp_rice)
+
+            for i in range(1,6):  # for each household, which has up to 5 each of possible non-GTGP and GTGP parcels:
+                # non_gtgp_area = float(line[i + 47].replace("\"",""))
+                # gtgp_area = float(line[i + 52].replace("\"",""))
+                non_gtgp_area = float(total_rice) + float(total_dry) - float(gtgp_dry) - float(gtgp_rice)
+                gtgp_area = float(gtgp_dry) + float(gtgp_rice)
+
+                if gtgp_area in [-2, -3, -4]:
+                    gtgp_area = 0
+                if non_gtgp_area in [-2, -3, -4]:
+                    non_gtgp_area = 0
+
+                if non_gtgp_area > 0:
+                    gtgp_enrolled = 0
+                    non_gtgp_output = float(line[i].replace("\"",""))
+                    pre_gtgp_output = 0
+                    land_time = float(line[i + 25].replace("\"",""))  # non-gtgp travel time
+                    plant_type = float(line[i + 10].replace("\"",""))  # non-gtgp plant type
+                    land_type = float(line[i + 30].replace("\"",""))  # non-gtgp land type
+
+                    if land_type not in [-2, -3, -4]:
+                        land_parcel_count += 1
+                        if non_gtgp_output in [-3, '-3', -4, '-4']:
+                            non_gtgp_output = 0
+                        if pre_gtgp_output in [-3, '-3', -4, '-4']:
+                            pre_gtgp_output = 0
+                        lp = Land(land_parcel_count, self, hh_id, gtgp_enrolled,
+                                             age_1, gender_1, education_1,
+                                             gtgp_dry, gtgp_rice, total_dry, total_rice,
+                                             land_type, land_time, plant_type, non_gtgp_output,
+                                             pre_gtgp_output, hh_size, non_gtgp_area, gtgp_area)
+                        self.schedule.add(lp)
+
+                if gtgp_area > 0:
+                    gtgp_enrolled = 1
+                    pre_gtgp_output = 0
+                    non_gtgp_output = float(line[i].replace("\"",""))
+                    land_time = float(line[i + 20].replace("\"",""))  # gtgp travel time
+                    plant_type = float(line[i + 15].replace("\"",""))  # gtgp plant type
+                    land_type = float(line[i + 35].replace("\"",""))  # gtgp land type
+                    if land_type not in [-3, '-3', -4, '-4']:
+                        land_parcel_count += 1
+                        if non_gtgp_output in [-3, '-3', -4, '-4']:
+                            non_gtgp_output = 0
+                        if pre_gtgp_output in [-3, '-3', -4, '-4']:
+                            pre_gtgp_output = 0
+                        lp = Land(land_parcel_count, self, hh_id, gtgp_enrolled,
+                                        age_1, gender_1, education_1,
+                                        gtgp_dry, gtgp_rice, total_dry, total_rice,
+                                        land_type, land_time, plant_type, non_gtgp_output,
+                                        pre_gtgp_output, hh_size, non_gtgp_area, gtgp_area)
+                        self.schedule.add(lp)
+
         # Creation of humans (brown dots in simulation)
-        human_id = 0
-        for line in _readCSV('household.csv')[1:]:
-            hh_id = line[0]  # household ID for that human
-            starting_position = (int(line[4]), int(line[3]))
+        self.number_of_humans = 0
+        self.human_id_count = 0
+        line_counter = 0
+        for line in _readCSV('hh_citizens.csv')[1:]:  # exclude headers; for each household:
+            hh_id = int(line[0])
+            line_counter += 1
+            starting_position = (int(_readCSV('household.csv')[line_counter][4]), int(_readCSV('household.csv')[line_counter][3]))
             try:
-                resource = random.choice(resource_dict[hh_id])  # random resource point for human
+                resource = random.choice(resource_dict[str(hh_id)])  # random resource point for human
                 resource_position = resource.position
                 resource_frequency = resource.frequency
                 # to travel to, among the list of resource points reported by that household; may change later
                 # to another randomly-picked resource
             except KeyError:
                 resource_position = starting_position  # some households don't collect resources
-            human_id += 1
-            resource_check = 0
-            human = Human(human_id, self, starting_position, hh_id, random.randint(15, 59),  # ages 15-59 randomly
-                          resource_check, starting_position, resource_position,
-                          resource_frequency)  # currently, human age is not being used in the model
-            if self.grid_type == 'with_humans':
-                self.grid.place_agent(human, starting_position)
-                self.schedule.add(human)
-                schedule_temp_list.append(human)
-        
+                resource_frequency = 0
+            hh_gender_list = line[1:10]
+            hh_age_list = line[10:19]
+            hh_education_list = line[19:28]
+            hh_marriage_list = line[28:37]
+            # creation of non-migrants
+            for list_item in hh_age_list:
+                if str(list_item) == '-3' or str(list_item) == '':
+                    hh_age_list.remove(list_item)
+            for x in range(len(hh_age_list) - 1):
+                person = []
+                for item in [hh_age_list, hh_gender_list, hh_education_list, hh_marriage_list]:
+                    person.append(item[x])
+                age = float(person[0])
+                gender = int(person[1])
+                education = int(person[2])
+                marriage = int(person[3])
+                if marriage != 1:
+                    marriage = 6
+                if 15 < age < 59:
+                    work_status = 1
+                elif 7 < age < 15:
+                    work_status = 5
+                else:
+                    work_status = 6
+                mig_years = 0
+                migration_network = int(line[37])
+                income_local_off_farm = int(line[57])
+                resource_check = 0
+                mig_remittances = int(line[48])
+                past_hh_id = hh_id
+                migration_status = 0
+                death_rate = 0
+                gtgp_part = 0
+                non_gtgp_area = 0
+
+                if str(gender) == '1':
+                    if 0 < age <= 10:
+                        age_category = 0
+                    elif 10 < age <= 20:
+                        age_category = 1
+                    elif 20 < age <= 30:
+                        age_category = 2
+                    elif 30 < age <= 40:
+                        age_category = 3
+                    elif 40 < age <= 50:
+                        age_category = 4
+                    elif 50 < age <= 60:
+                        age_category = 5
+                    elif 60 < age <= 70:
+                        age_category = 6
+                    elif 70 < age <= 80:
+                        age_category = 7
+                    elif 80 < age <= 90:
+                        age_category = 8
+                    elif 90 < age:
+                        age_category = 9
+                elif str(gender) != "1":
+                    if 0 < age <= 10:
+                        age_category = 10
+                    elif 10 < age <= 20:
+                        age_category = 11
+                    elif 20 < age <= 30:
+                        age_category = 12
+                    elif 30 < age <= 40:
+                        age_category = 13
+                    elif 40 < age <= 50:
+                        age_category = 14
+                    elif 50 < age <= 60:
+                        age_category = 15
+                    elif 60 < age <= 70:
+                        age_category = 16
+                    elif 70 < age <= 80:
+                        age_category = 17
+                    elif 80 < age <= 90:
+                        age_category = 18
+                    elif 90 < age:
+                        age_category = 19
+                children = 0
+                if gender == 2:
+                    if marriage == 1 and age < 45:
+                        children = random.randint(0, 4)  # might already have kids
+                    birth_plan_chance = random.random()
+                    if birth_plan_chance < 0.03125:
+                        birth_plan = 0
+                    elif 0.03125 <= birth_plan_chance < 0.1875:
+                        birth_plan = 1
+                    elif 0.1875 <= birth_plan_chance < 0.5:
+                        birth_plan = 2
+                    elif 0.5 <= birth_plan_chance < 0.8125:
+                        birth_plan = 3
+                    elif 0.8125 <= birth_plan_chance < 0.96875:
+                        birth_plan = 4
+                    else:
+                        birth_plan = 5
+                elif gender != 2:
+                    birth_plan = 0
+                last_birth_time = random.uniform(0, 1)
+                human_demographic_structure_list[age_category] += 1
+                if str(person[0]) != '' and str(person[0]) != '-3' and str(person[1]) != '-3':  # sorts out all blanks
+                    self.number_of_humans += 1
+                    self.human_id_count += 1
+                    human = Human(self.human_id_count, self, starting_position, hh_id, age,  # creates human
+                                  resource_check, starting_position, resource_position,
+                                  resource_frequency, gender, education, work_status,
+                                  marriage, past_hh_id, mig_years, migration_status, gtgp_part,
+                                  non_gtgp_area, migration_network, mig_remittances,
+                                  income_local_off_farm, last_birth_time, death_rate, age_category, children,
+                                  birth_plan)
+                    if self.grid_type == 'with_humans':
+                        self.grid.place_agent(human, starting_position)
+                        self.schedule.add(human)
+
+            # creation of migrant
+            hh_migrants = line[38:43]  # age, gender, marriage, education of migrants
+            if str(hh_migrants[0]) != '' and str(hh_migrants[0]) != '-3'\
+                    and str(hh_migrants[1]) != '' and str(hh_migrants[1]) != '-3':  # if that household has any migrants, create migrant person
+                self.number_of_humans += 1
+                self.human_id_count += 1
+                age = float(hh_migrants[0])
+                gender = float(hh_migrants[1])
+                education = int(hh_migrants[2])
+                marriage = int(hh_migrants[3])
+                mig_years = int(hh_migrants[4])
+                if 15 < age < 59:
+                    work_status = 1
+                elif 7 < age < 15:
+                    work_status = 5
+                else:
+                    work_status = 6
+                past_hh_id = hh_id
+                hh_id = 'Migrated'
+                migration_status = 1
+                migration_network = int(line[37])
+
+                last_birth_time = random.uniform(0, 1)
+
+                total_rice = float(line[43])
+                gtgp_rice = float(line[44])
+                total_dry = float(line[45])
+                gtgp_dry = float(line[46])
+                income_local_off_farm = float(line[57])
+                if total_rice in ['-3', '-4', -3, None]:
+                    total_rice = 0
+                if total_dry in ['-3', '-4', -3, None]:
+                    total_dry = 0
+                if gtgp_dry in ['-3', '-4', -3, None]:
+                    gtgp_dry = 0
+                if gtgp_rice in ['-3', '-4', -3, None]:
+                    gtgp_rice = 0
+                if (gtgp_dry + gtgp_rice) != 0:
+                    gtgp_part = 1
+                else:
+                    gtgp_part = 0
+                non_gtgp_area = ((total_rice) + (total_dry)) \
+                                - ((gtgp_dry) + (gtgp_rice))
+                resource_check = 0
+                mig_remittances = int(line[48])
+                death_rate = 0
+                if gender == 1:  # human male (monkeys are 0 and 1, humans are 1 and 2)
+                    if 0 < age <= 10:
+                        age_category = 0
+                    elif 10 < age <= 20:
+                        age_category = 1
+                    elif 20 < age <= 30:
+                        age_category = 2
+                    elif 30 < age <= 40:
+                        age_category = 3
+                    elif 40 < age <= 50:
+                        age_category = 4
+                    elif 50 < age <= 60:
+                        age_category = 5
+                    elif 60 < age <= 70:
+                        age_category = 6
+                    elif 70 < age <= 80:
+                        age_category = 7
+                    elif 80 < age <= 90:
+                        age_category = 8
+                    elif 90 < age:
+                        age_category = 9
+                elif gender != 1:
+                    if 0 < age <= 10:
+                        age_category = 10
+                    elif 10 < age <= 20:
+                        age_category = 11
+                    elif 20 < age <= 30:
+                        age_category = 12
+                    elif 30 < age <= 40:
+                        age_category = 13
+                    elif 40 < age <= 50:
+                        age_category = 14
+                    elif 50 < age <= 60:
+                        age_category = 15
+                    elif 60 < age <= 70:
+                        age_category = 16
+                    elif 70 < age <= 80:
+                        age_category = 17
+                    elif 80 < age <= 90:
+                        age_category = 18
+                    elif 90 < age:
+                        age_category = 19
+                children = 0
+                if gender == 2:
+                    if marriage == 1 and age < 45:
+                        children = random.randint(0, 4)  # might already have kids
+                    birth_plan_chance = random.random()
+                    if birth_plan_chance < 0.03125:
+                        birth_plan = 0
+                    elif 0.03125 <= birth_plan_chance < 0.1875:
+                        birth_plan = 1
+                    elif 0.1875 <= birth_plan_chance < 0.5:
+                        birth_plan = 2
+                    elif 0.5 <= birth_plan_chance < 0.8125:
+                        birth_plan = 3
+                    elif 0.8125 <= birth_plan_chance < 0.96875:
+                        birth_plan = 4
+                    else:
+                        birth_plan = 5
+                elif gender != 2:
+                    birth_plan = 0
+                human_demographic_structure_list[age_category] += 1
+                human = Human(self.human_id_count, self, starting_position, hh_id, age,  # creates human
+                              resource_check, starting_position, resource_position,
+                              resource_frequency, gender, education, work_status,
+                              marriage, past_hh_id, mig_years, migration_status, gtgp_part, non_gtgp_area,
+                              migration_network, mig_remittances, income_local_off_farm,
+                              last_birth_time, death_rate, age_category, children, birth_plan)
+                if self.grid_type == 'with_humans':
+                    self.grid.place_agent(human, starting_position)
+                    self.schedule.add(human)
+
         # Creation of monkey families (moving agents in the visualization)
-        for i in range(self.number_of_families):  # the following code block create families
+        for i in range(self.number_of_families):  # the following code block creates families
             starting_position = random.choice(startinglist)
             saved_position = starting_position
             from families import Family
@@ -166,16 +478,15 @@ class Movement(Model):
                             saved_position, split_flag)
             self.grid.place_agent(family, starting_position)
             self.schedule.add(family)
-            schedule_temp_list.append(family)
             global_family_id_list.append(family_id)
 
             # Creation of individual monkeys (not in the visualization submodel, but for the demographic submodel)
             for monkey_family_member in range(family_size):   # creates the amount of monkeys indicated earlier
-                id = self.number_of_monkeys + 1
+                id = self.monkey_id_count
                 gender = random.randint(0, 1)
-                if gender == 1:  # gender = 1 is female, gender = 0 is male
+                if gender == 1:  # gender = 1 is female, gender = 0 is male. this is different than with humans (1 or 2)
                     female_list.append(id)
-                    last_birth_interval = random.uniform(0, 3)
+                    last_birth_interval = random.uniform(0, 2)
                 else:
                     male_maingroup_list.append(id)  # as opposed to the all-male subgroup
                     last_birth_interval = -9999  # males will never give birth
@@ -206,11 +517,12 @@ class Movement(Model):
                             reproductive_female_list.append(id)
                     # starting representation of male defection/gender ratio
                     structure_convert = random.random()
-                    if structure_convert > 0.25:
-                        gender = 1  # 75% of those aged 10-25 are female
-                        last_birth_interval = random.uniform(0, 3.25)
-                        if id not in reproductive_female_list:
-                            reproductive_female_list.append(id)
+                    if gender == 0:
+                        if structure_convert < 0.6:
+                            gender = 1
+                            last_birth_interval = random.uniform(0, 3)
+                            if id not in reproductive_female_list:
+                                reproductive_female_list.append(id)
                 elif 0.96 < choice:  # 4% of starting monkey population
                     age = random.uniform(25, 30)  # are randomly aged between
                     age_category = 5  # ages 25-30
@@ -222,9 +534,6 @@ class Movement(Model):
                 self.monkey_id_count += 1
                 list_of_family_members.append(monkey.unique_id)
                 self.schedule.add(monkey)
-        for x in schedule_temp_list:
-            self.schedule.add(x)
-        # print(self.schedule.agents)
 
     def step(self):
         # necessary; tells model to move forward

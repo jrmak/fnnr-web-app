@@ -1,9 +1,9 @@
-# !/usr/bin/python
+"""
+This file handles the demographic submodel for the Guizhou golden monkey population (birth, death, aging, etc.).
+"""
 
-"""
-This file runs the demographic submodel for the Guizhou golden monkey population (birth, death, aging, etc.).
-"""
 from families import *
+import os
 
 male_migration_list = []
 new_family_counter = [0]
@@ -11,6 +11,12 @@ new_male_family_counter = [0]
 old_family_ids = {}
 new_families_dict = {}
 new_male_families_dict = {}
+
+run = 1  # do not change this; it will automatically search for the first number-as-string not taken
+while os.path.isfile(os.getcwd() + '\\' + 'fnnr_monkey_log_file' + str(run) + '.txt'):
+    # if folder exists in current directory, loop up until it finds a unique number
+    run += 1
+monkey_log = 'fnnr_monkey_log_file' + str(run) + '.txt'
 
 class Monkey(Agent):
     #  while Family agents move on the visualization grid, Monkey agents follow demographic-based actions
@@ -20,25 +26,24 @@ class Monkey(Agent):
         super().__init__(unique_id, model)
         self.age = age
         self.gender = gender
-        self.age_category = age_category
-        self.family = family
-        self.last_birth_interval = last_birth_interval
+        self.age_category = age_category  # ages 0-1, 3-7, etc.
+        self.family = family  # family ID
+        self.last_birth_interval = last_birth_interval  # only really applies to females who give birth
         self.mother = mother
 
     def step(self):
         # Aging
-        self.check_age_category()
-        self.age += (1 / 73)
+        self.check_age_category()  # changes the monkey's age category if they have just aged to a threshold #
+        self.age += (1/73)
 
-        # Check if mother of recently dead infant and count time since last birth
+        # Check if an individual is a mother of recently dead infant, and count time since last birth
         if self.unique_id in reproductive_female_list:
             if self.unique_id not in random_mother_list:
                 random_mother_list.append(self.unique_id)
+            self.last_birth_interval += 1/73
             self.check_recent_death_infant()
-            self.last_birth_interval += 1 / 73
 
         # Check if male subgroup needs to break off of main group
-
         if self.unique_id in male_migration_list:
             new_family_list = new_male_families_dict[new_male_family_counter[-1]]
             for new_male_family in new_family_list:  # extract from list; there should only be 1 value
@@ -47,14 +52,19 @@ class Monkey(Agent):
             if self.unique_id in male_subgroup_list:
                 male_subgroup_list.remove(self.unique_id)
 
-
+        # if a family group is too large, it splits into two
         if self.family.family_size > 46 and self.family.split_flag == 0:  # start splitting/create new family
+            log = open(monkey_log, 'a+')
+            log.writelines('Family Split, ' + 'Step ' + str(int(self.model.time * 73)) + ': Family,' + str(self.family))
+            log.writelines('\n')
+            log.close()
             new_family_counter.append(new_family_counter[-1] + 1)
             self.family.split_flag = new_family_counter[-1]  # old family split_flag
             old_family_ids.setdefault(self.family.unique_id, []).append(new_family_counter[-1])
             new_family = self.create_new_family()
             new_families_dict.setdefault(new_family_counter[-1], []).append(new_family)
 
+        # if a family group is splitting, monkeys within it are flagged to migrate out
         if self.family.split_flag != 0 and self.family.family_size >= 24:  # join new family/migration
             new_family_id_list = old_family_ids[self.family.unique_id]
             for new_family_id in new_family_id_list:  # extract from list; there should only be 1 value
@@ -62,10 +72,11 @@ class Monkey(Agent):
             for new_family in new_family_list:  # extract from list; there should only be 1 value
                 self.migrate_to_new_family(new_family)
 
+        # if a family group is splitting, it stops splitting when the number of individuals is low enough
         if self.family.split_flag != 0 and self.family.family_size < 24:  # stop splitting; remain in family
             self.family.split_flag = 0
 
-        # Birth
+        # Birth from the mother's perspective
         if (49 < self.model.step_in_year < 55) \
                 and (self.gender == 1 and random.uniform(8, 9) <= self.age <= 25):
             if self.last_birth_interval >= 3:
@@ -102,8 +113,13 @@ class Monkey(Agent):
                 demographic_structure_list[3] -= 1
                 # 0.99973^73 = 98% chance to survive each year with ticks every 5 days
                 # 0.99958^73 = 97% chance to survive each year with ticks every 5 days
+                # 0.999441^73 = 96%
                 # 0.9993^73 = 95% chance to survive each year with ticks every 5 days
-        elif 10 < self.age <= 30 and chance <= 0.0013:  # 0.0013 = 1 - 0.9987; 91% survival; see below
+                # 0.9992255^73 = 94.5% chance
+                # 0.999153^73 = 94% chance
+                # 0.998095 = 87%
+        elif 10 < self.age <= 30 and self.gender == 0 and chance <= 0.001905: # 87% chance to survive
+            # We want a 3:1 male to female ratio, so females will less likely to die and males will be more likely
             self.death()
             if 10 < self.age <= 25:
                 demographic_structure_list[4] -= 1
@@ -111,9 +127,23 @@ class Monkey(Agent):
                 demographic_structure_list[5] -= 1
                 # 0.99778^73 = 85% chance to survive each year with ticks every 5 days
                 # 0.9987^73 = 91% chance to survive each year with ticks every 5 days
-        elif self.age > 30 and chance <= 0.01245:  # 1 - 0.98755; 40% survival; see below
+        elif 10 < self.age <= 30 and self.gender == 1 and chance <= 0.0007745:  # 94.5% chance to survive
+            # 94.5% chance to survive for females and 87% chance to survive for males creates an average of a 91%
+            # survival rate for all monkeys aged 10-25.
+            self.death()
+            if 10 < self.age <= 25:
+                demographic_structure_list[4] -= 1
+            elif 25 < self.age < 30:
+                demographic_structure_list[5] -= 1
+                # 0.99778^73 = 85% chance to survive each year with ticks every 5 days
+                # 0.9987^73 = 91% chance to survive each year with ticks every 5 days
+        elif self.age > 30 and self.gender == 1 and chance <= 0.01245:  # 1 - 0.98755; 40% survival; see below
             self.death()
             demographic_structure_list[5] -= 1
+        elif self.age > 30 and self.gender == 0 and chance <= 0.1:  # chances of survival are much lower for senior males
+            self.death()
+            demographic_structure_list[5] -= 1
+
             # 0.99778^73 = 85% chance to survive each year with ticks every 5 days
             # 0.99607^73 = 75% chance to survive each year with ticks every 5 days
             # 0.98755^73 = 40% chance to survive each year with ticks every 5 days
@@ -131,6 +161,12 @@ class Monkey(Agent):
             demographic_structure_list[(self.age_category)] -= 1
             demographic_structure_list[(self.age_category + 1)] += 1
             self.age_category += 1
+            log = open(monkey_log, 'a+')
+            log.writelines('Aging, ' + 'Step ' + str(int(self.model.time * 73)) + ': Agent,' + str(self.unique_id)
+                           + ',' + str(self.age) + ',' + str(self.gender) + ',' + 'aged to age category' + ','
+                           + str(self.age_category))
+            log.writelines('\n')
+            log.close()
 
             if self.age_category == 4 and self.gender == 1:
                 if self.unique_id not in reproductive_female_list:
@@ -151,21 +187,20 @@ class Monkey(Agent):
     def check_recent_death_infant(self):
         # allow mothers who have recently lost an infant to give birth again in a short period
         if self.unique_id in recent_death_infant:
-            self.last_birth_interval = random.uniform(2, 2.4)
+            self.last_birth_interval = random.uniform(2, 2.5)
             recent_death_infant.remove(self.unique_id)
 
     def birth(self, parent_family, mother_id):
-        # birth from the agent-perspective of the mother agent
+        # birth from the agent-perspective of the mother agent; creates a new monkey individual
         last = self.model.monkey_id_count
         family = parent_family
         gender = random.randint(0, 1)
         age = 0
         age_category = 0
+        last_birth_interval = 0
         if gender == 1:
-            last_birth_interval = 0
             female_list.append(last + 1)
         else:
-            last_birth_interval = -9999
             male_maingroup_list.append(last + 1)
         mother = mother_id
         if mother == 0 or mother == '0':
@@ -178,9 +213,19 @@ class Monkey(Agent):
         self.model.monkey_id_count += 1
         self.model.monkey_birth_count += 1
         demographic_structure_list[0] += 1
+        log = open(monkey_log, 'a+')
+        log.writelines('Birth, ' + 'Step ' + str(int(self.model.time * 73)) + ': Agent,' + str(self.unique_id)
+                       + ',' + str(self.age) + ',' + str(self.gender) + ',' + 'gave birth to,' + (str(last + 1)))
+        log.writelines('\n')
+        log.close()
 
     def death(self):
         # death from the perspective of a monkey agent
+        log = open(monkey_log, 'a+')
+        log.writelines('Death, ' + 'Step ' + str(int(self.model.time * 73)) + ': Agent,' + str(self.unique_id)
+                       + ',' + str(self.age) + ',' + str(self.gender) + ',' + 'died')
+        log.writelines('\n')
+        log.close()
         self.family.family_size -= 1
         if self.family.family_size == 0:  # if this individual is the last member in their family--for all-male groups
             global_family_id_list.remove(self.family)
@@ -202,11 +247,12 @@ class Monkey(Agent):
 
     def create_new_family(self):
         # a new family group forms when the size of the original group reaches < 45 members
+        # this is done from the self perspective, but nothing happens to the individual besides the group forming
         from model import global_family_id_list
-        new_family_id = int(global_family_id_list[-1] + 1)
+        new_family_id = int(global_family_id_list[-1] + 1)  # the new family_id is the latest id + 1
         global_family_id_list.append(new_family_id)
         saved_position = self.family.current_position
-        split_flag = 0  # 0 for new family
+        split_flag = 0  # 0 for new family; new families do not start splitting by default
         family_type = 'traditional'
         new_family = Family(new_family_id, self.model, self.family.current_position, 1, [self.unique_id],
                             family_type, saved_position, split_flag)
@@ -216,6 +262,8 @@ class Monkey(Agent):
         return new_family
 
     def migrate_to_new_family(self, new_family):
+        # removes and adds self to certain lists, and changes self attributes, to migrate self to a new family
+        # this occurs when a male is migrating to an all-male group or a bigger family is splitting into two
         self.family.family_size -= 1
         if self.unique_id in self.family.list_of_family_members:
             self.family.list_of_family_members.remove(self.unique_id)
