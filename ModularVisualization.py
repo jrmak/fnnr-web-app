@@ -273,7 +273,7 @@ class ModularServer(tornado.web.Application):
         Once these requirements are met, determine from its 8-cell neighbors\' vegetation types a weighted random direction \
         in which to move. Twice per year, monkeys also migrate to Yangaoping in the northeast section of the FNNR. \
         In contrast to the monkeys, the humans\' only movement rules are to gather resources and return to their homes. \
-        Please take a look at https://github.com/jrmak/fnnr-abm-primate for more information!"
+        Please take a look at https://github.com/jrmak/fnnr-abm-primate for more information."
         if hasattr(model_cls, 'description'):
             self.description = model_cls.description
         elif model_cls.__doc__ is not None:
